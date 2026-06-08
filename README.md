@@ -366,65 +366,7 @@ SEED [INVESTMENTOS-v1.0]:
 
 ---
 
-## 🔄 17. Plano de Refatoração — Próximos Ciclos
-
-### 🧭 Diagnóstico
-
-Revisão arquitetural (Jun/2026) identificou risco ontológico: complexidade > capacidade operacional. O sistema atual mistura conceitos de economia, IA, DAO, tokenomics, governança e métricas em um único pacote. A recomendaçao é evoluir de "sistema de investimentos" para **"sistema operacional de capitais"**.
-
-### 🎯 Roadmap de Refatoração
-
-#### Ciclo 1 — Pureza Ontológica (curto prazo)
-
-| Ação | Justificativa |
-|------|---------------|
-| Separar `invest_os/` em domínios por conceito único | Cada módulo deve representar **um** conceito, não vários |
-| Extrair `invest_os/entities/` — `Person`, `Project`, `Community`, `DAO`, `Fund` | Entidades fundamentais estavam implícitas em `schemas.py` |
-| Extrair `invest_os/capitals/` — `HumanCapital`, `SocialCapital`, `FinancialCapital` etc. | `capital_grid.py` mistura avaliação, scoring e sugestão de ação |
-| Extrair `invest_os/signals/` — normalização de tweets, commits, transações em sinais | Tudo vira sinal: `Signal → Model → Score → Decision → Allocation` |
-
-#### Ciclo 2 — Limpeza de Acoplamento (médio prazo)
-
-| Ação | Justificativa |
-|------|---------------|
-| Remover dependência de `cli.py` → importa `engine.py` que importa `cognitive.py` → `capital_grid.py` | Acoplamento direcional deve ser `cli → pipeline → core`, não circular |
-| Extrair `governance/` para pacote independente | Pode ser reutilizado por outros projetos (cadcad-explorer, farcaster-nexus) |
-| `PromptsEngine.run_full_chain()` não deve acessar `datetime` via `__import__` | Substituir por `from datetime import datetime` explícito |
-| `CognitivePipeline` carrega `CapitalGrid` e `PromptEngine` no `__init__` — injetar por parâmetro | Facilitar testes e substituição de implementações |
-| `Metrics.calculate_all_metrics()` tem 12 parâmetros — quebrar em builders | Melhorar legibilidade e testabilidade |
-
-#### Ciclo 3 — Sistema Operacional de Capitais (longo prazo)
-
-```
-invest-os/
-├── entities/          # Person, Project, Community, Organization, Fund, DAO
-├── capitals/          # HumanCapital, SocialCapital, CulturalCapital, ...
-├── signals/           # Tweet, Commit, Issue, PR, Article, Transaction, Observation
-├── models/            # Modelagem preditiva e simulação (cadCAD, GBM, Lotka)
-├── scores/            # RHI, HHI, Gini, Sharpe — transformam sinais em scores
-├── decisions/         # Invest, Grant, Mentor, Connect, Ignore, Monitor
-├── allocations/       # Capital, Attention, Time, Knowledge, Money, Reputation
-├── governance/        # Ostrom + Goodhart Shield (separado, reutilizável)
-└── learning/          # RLHF, drift detection, level-up do investidor
-```
-
-### 🔍 Checklist de Revisão por Ciclo
-
-| Pergunta | Ciclo 1 | Ciclo 2 | Ciclo 3 |
-|----------|---------|---------|---------|
-| Cada módulo representa um único conceito? | ✅ | 🔄 | 🔄 |
-| Este componente aumenta a capacidade de decisão? | ✅ | ✅ | 🔄 |
-| Este dado gera sinal ou apenas armazenamento? | 🔄 | ✅ | ✅ |
-| Este módulo reduz ou aumenta entropia organizacional? | 🔄 | 🔄 | ✅ |
-| O sistema produz mais capital do que consome? | — | — | ✅ |
-
-### 🧬 Filosofema-Guia da Refatoração
-
-> "Investir não é escolher ativos; é aumentar a capacidade adaptativa de sistemas vivos através da alocação inteligente de capitais múltiplos."
-
----
-
-## 🧬 18. Filosofemas Finais
+## 🧬 17. Filosofemas Finais
 
 > "IA não é um oráculo que respondemos, mas um rio em que navegamos."
 
@@ -446,7 +388,7 @@ invest-os/
 
 ---
 
-## ⚙️ 19. Implementação — Python Package
+## ⚙️ 18. Implementação — Python Package
 
 ### 📦 Mapeamento de Pastas & Arquivos
 
