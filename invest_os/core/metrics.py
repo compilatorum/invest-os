@@ -126,7 +126,7 @@ def calculate_all_metrics(
     metrics = {}
     metrics["nvt"] = nvt_ratio(market_cap, transaction_volume)
     metrics["mvrv"] = mvrv_ratio(market_cap, realized_cap)
-    metrics["sopr"] = sopr(1.0, 1.0)
+    metrics["sopr"] = sopr(transaction_volume, realized_cap)
     if returns_90d:
         metrics["sharpe_90d"] = sharpe_ratio(returns_90d, risk_free)
     metrics["il_break_even"] = il_break_even(p1, p2)

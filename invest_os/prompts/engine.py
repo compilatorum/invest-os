@@ -14,7 +14,7 @@ PROMPT_REPO = {}
 def load_prompt_repo(path: str = "prompts/repository") -> dict:
     import os
     repo = {}
-    base = os.path.join(os.path.dirname(__file__), "..", path)
+    base = os.path.join(os.path.dirname(__file__), "..", "..", path)
     for fname in os.listdir(base):
         if fname.endswith(".md"):
             key = fname.replace(".md", "")

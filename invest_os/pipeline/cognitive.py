@@ -171,9 +171,11 @@ class CognitivePipeline:
         metrics = self.camada1_percepcao(**m)
 
         csk = capital_scores_kwargs or {}
+        shannon_h = csk.get("shannon_h", metrics.get("entropy", 1.5))
+        gini = csk.get("gini", metrics.get("gini", 0.0))
         capital = self.camada2_semiose(
-            shannon_h=csk.get("shannon_h", 0.0),
-            gini=csk.get("gini", 0.0),
+            shannon_h=shannon_h,
+            gini=gini,
             custom_scores=capital_scores,
         )
 

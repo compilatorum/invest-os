@@ -37,6 +37,8 @@ class TestGoodhartShield:
         self.shield = GoodhartShield()
 
     def test_apply_noise(self):
+        import random
+        random.seed(42)
         result = self.shield.apply("rhi", 0.65)
         assert result != 0.65
         assert 0.5 < result < 0.8

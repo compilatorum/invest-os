@@ -100,7 +100,7 @@ class CognitiveMap(BaseModel):
 
 class DecisionOutput(BaseModel):
     acao: Action
-    tamanho_posicao: float = Field(ge=0.0, le=1.0)
+    tamanho_posicao: float = Field(ge=-1.0, le=1.0)
     score_composto: float = Field(ge=0.0, le=1.0)
     narrativa: str = ""
     metadata_nft: dict = {}

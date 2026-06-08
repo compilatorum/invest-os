@@ -55,7 +55,7 @@ class TestCognitivePipeline:
         from invest_os.models.schemas import InvestorConfig, RiskProfile
         config = InvestorConfig(risco=RiskProfile.CONSERVADOR, capital_disponivel_brl=1000)
         pipe = CognitivePipeline(config=config)
-        result = pipe.run(ativo="SOL")
+        result = pipe.run(ativo="SOL", capital_scores_kwargs={"shannon_h": 0.5})
         assert result.state.config.risco.value == "conservador"
         if result.state.decision:
             assert result.state.decision.gate_humano is True

@@ -338,48 +338,51 @@ def simulate(tipo, steps, dt, json_output):
         price_from_bonding_curve, conviction_vote,
     )
 
-    header = {"gbm": "📈 GBM — Geometric Brownian Motion",
-              "lotka": "🦌 Lotka-Volterra (Capital Vivo × Financeiro)",
-              "bonding": "🔗 Bonding Curve",
-              "conviction": "🗳️ Conviction Voting"}[tipo]
-
-    console.print(f"[bold cyan]{header}[/bold cyan]\n")
-
     if tipo == "gbm":
         path = geometric_brownian_motion(100, 0.05, 0.2, dt, steps)
+        if json_output:
+            console.print_json(data={"type": "gbm", "path": [round(p, 4) for p in path]})
+            return
+        console.print(f"[bold cyan]📈 GBM — Geometric Brownian Motion[/bold cyan]\n")
         console.print(f"  S₀ = 100 | μ = 5% | σ = 20% | {steps} steps")
         console.print(f"  Final: {path[-1]:.4f}")
         console.print(f"  Min: {min(path):.4f} | Max: {max(path):.4f} | Ret: {(path[-1]/path[0]-1)*100:.2f}%")
-        if json_output:
-            console.print_json(data={"type": "gbm", "path": [round(p, 4) for p in path]})
 
     elif tipo == "lotka":
         v, f = lotka_volterra(0.5, 0.01, 0.01, 0.3, 40, 10, dt, steps)
+        if json_output:
+            console.print_json(data={"type": "lotka", "vivo": [round(x, 4) for x in v], "financeiro": [round(x, 4) for x in f]})
+            return
+        console.print(f"[bold cyan]🦌 Lotka-Volterra (Capital Vivo × Financeiro)[/bold cyan]\n")
         console.print(f"  α=0.5 β=0.01 δ=0.01 γ=0.3 | V₀=40 F₀=10")
         console.print(f"  Final — Vivo: {v[-1]:.2f} | Financeiro: {f[-1]:.2f}")
         console.print(f"  Vivo max: {max(v):.2f} | Financeiro max: {max(f):.2f}")
-        if json_output:
-            console.print_json(data={"type": "lotka", "vivo": [round(x, 4) for x in v], "financeiro": [round(x, 4) for x in f]})
 
     elif tipo == "bonding":
+        if json_output:
+            prices = {s: price_from_bonding_curve(s, 50000, 0.5) for s in range(100, 1100, 100)}
+            console.print_json(data={"type": "bonding", "prices": prices})
+            return
+        console.print(f"[bold cyan]🔗 Bonding Curve[/bold cyan]\n")
         console.print(f"  Supply vs Preço (Reserve Ratio = 0.5):")
         for s in range(100, 1100, 100):
             p = price_from_bonding_curve(s, 50000, 0.5)
             console.print(f"    Supply {s:4d} → Preço {p:8.4f}")
-        if json_output:
-            prices = {s: price_from_bonding_curve(s, 50000, 0.5) for s in range(100, 1100, 100)}
-            console.print_json(data={"type": "bonding", "prices": prices})
 
     elif tipo == "conviction":
         conv = 0
         alpha = 0.9
+        if json_output:
+            for voto in [10, 5, 20, 8, 15]:
+                conv = conviction_vote(conv, alpha, voto)
+            console.print_json(data={"type": "conviction", "final": conv, "approved": conv >= 50})
+            return
+        console.print(f"[bold cyan]🗳️ Conviction Voting[/bold cyan]\n")
         console.print(f"  α={alpha} | votos=[10, 5, 20, 8, 15] | limiar=50")
         for i, voto in enumerate([10, 5, 20, 8, 15]):
             conv = conviction_vote(conv, alpha, voto)
             status = "✅ APROVADA" if conv >= 50 else "⏳"
             console.print(f"    Passo {i+1}: convicção={conv:.2f} {status}")
-        if json_output:
-            console.print_json(data={"type": "conviction", "final": conv, "approved": conv >= 50})
 
 
 @main.command()

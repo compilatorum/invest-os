@@ -153,6 +153,9 @@ def suggest_action(capital_grid: CapitalGridResult, metrics: dict) -> Action:
     if capital_grid.bloqueio:
         return Action.EVITAR
 
+    if capital_grid.rhi_estimated < 0.2:
+        return Action.EVITAR
+
     score = capital_grid.rhi_estimated
 
     mvrv = metrics.get("mvrv", 1.5)
