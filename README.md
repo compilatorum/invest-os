@@ -385,3 +385,126 @@ SEED [INVESTMENTOS-v1.0]:
 > "O mercado é um espelho: mostra não apenas o valor dos ativos, mas o valor que você atribui a si mesmo."
 
 > "O futuro da economia digital é a economia do significado."
+
+---
+
+## ⚙️ 18. Implementação — Python Package
+
+### 📦 Estrutura do Código
+
+```
+invest-os/
+├── pyproject.toml              # Configuração do package
+├── README.md                   # Esta spec
+├── CLASSIFIERS.txt             # Classificadores PyPI
+├── invest_os/                  # Package principal
+│   ├── __init__.py
+│   ├── cli.py                  # CLI (Click + Rich)
+│   ├── models/
+│   │   └── schemas.py          # Pydantic: modelos de domínio
+│   ├── core/
+│   │   ├── metrics.py          # NVT, MVRV, SOPR, Sharpe, HHI, Gini, Entropia
+│   │   └── capital_grid.py     # KAIROS 8 capitais + RHI + suggest_action
+│   ├── prompts/
+│   │   └── engine.py           # Meta-prompt chain 5 níveis
+│   ├── pipeline/
+│   │   └── cognitive.py        # Pipeline cognitivo 5 camadas
+│   ├── governance/
+│   │   └── engine.py           # Ostrom 8 princípios + Goodhart Shield
+│   └── utils/
+│       └── math_tools.py       # GBM, Lotka-Volterra, Bonding Curves, Conviction
+├── prompts/repository/         # Prompt templates versionados
+│   ├── level0_context.md
+│   ├── level1_financial_dd.md
+│   ├── level2_regenerative_dd.md
+│   ├── level3_semiotic.md
+│   ├── level4_axiological.md
+│   └── level5_rlhf.md
+└── tests/                      # 76 testes (pytest)
+    ├── test_metrics.py
+    ├── test_capital_grid.py
+    ├── test_prompts.py
+    ├── test_pipeline.py
+    ├── test_governance.py
+    └── test_math_tools.py
+```
+
+### 🚀 Instalação & Uso
+
+```bash
+pip install -e .
+# ou
+pip install invest-os  # quando publicado
+
+# CLI
+invest-os version                   # Info do sistema
+invest-os analyze                   # Análise completa de ativo
+invest-os pipeline                  # Pipeline cognitivo completo
+invest-os prompts                   # Meta-prompt chain
+invest-os governance                # Governança algorítmica
+invest-os simulate --tipo gbm       # Simulação econofísica
+
+# Testes
+python3 -m pytest tests/ -v
+```
+
+### 🧪 Exemplos CLI
+
+**Análise de ativo:**
+```bash
+invest-os analyze -m 1e9 -v 1e7 --shannon-h 1.5 --gini 0.3
+```
+
+**Pipeline cognitivo completo:**
+```bash
+invest-os pipeline --ativo ETH --perfil cultivador \
+  --market-cap 5e8 --volume 5e6 --shannon-h 2.0 --gini 0.25
+```
+
+**Prompt chain para deep research:**
+```bash
+invest-os prompts --ativo ETH --perfil sabio --output chain.md
+```
+
+**Simulação econofísica:**
+```bash
+invest-os simulate --tipo lotka --steps 100
+invest-os simulate --tipo gbm --steps 200 --dt 0.01
+invest-os simulate --tipo bonding
+invest-os simulate --tipo conviction
+```
+
+### 🧠 API Python
+
+```python
+from invest_os.pipeline.cognitive import CognitivePipeline
+from invest_os.models.schemas import InvestorConfig, RiskProfile
+
+config = InvestorConfig(
+    tese_impacto="ReFi Amazônia",
+    risco=RiskProfile.MODERADO,
+    capital_disponivel_brl=1000,
+)
+
+pipe = CognitivePipeline(config=config)
+result = pipe.run(
+    ativo="KlimaDAO",
+    metrics_input={"market_cap": 5e8, "transaction_volume": 5e6},
+)
+
+print(f"Ação: {result.state.decision.acao.value}")
+print(f"Score: {result.state.decision.score_composto:.1%}")
+print(f"RHI:   {result.state.capital_grid.rhi_estimated:.1%}")
+```
+
+### 📊 Cobertura
+
+| Módulo | Testes | Status |
+|--------|--------|--------|
+| `metrics` | 20 | ✅ NVT, MVRV, SOPR, Sharpe, IL, HHI, Entropia, Gini, Temperatura |
+| `capital_grid` | 9 | ✅ Grid 8D, RHI, bloqueios, interpretação, suggest_action |
+| `prompts` | 8 | ✅ Chain 5 níveis, templates, personalização |
+| `pipeline` | 8 | ✅ Pipeline 5 camadas, full_run, gates |
+| `governance` | 5 | ✅ Ostrom 8 princípios, Goodhart Shield, drift detection |
+| `math_tools` | 13 | ✅ GBM, Lotka-Volterra, Cosine, JSD, Bonding, Conviction |
+| **Total** | **76** | **✅ 100% passing** |

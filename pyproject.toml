@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invest-os"
+version = "1.0.0"
+description = "InvestmentOS — Sistema adaptivo de suporte ao investidor Web3 com engenharia de prompts, grid KAIROS, pipeline cognitivo e governança algorítmica"
+authors = [{name = "João Nitsche", email = "joaonit@gmail.com"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+    "click>=8.0",
+    "rich>=13.0",
+    "httpx>=0.24",
+    "pyyaml>=6.0",
+]
+dynamic = ["classifiers"]
+
+[tool.setuptools.packages.find]
+include = ["invest_os*"]
+
+[tool.setuptools.dynamic]
+classifiers = {file = ["CLASSIFIERS.txt"]}
+
+[project.scripts]
+invest-os = "invest_os.cli:main"
+investos = "invest_os.cli:main"
+io = "invest_os.cli:main"
