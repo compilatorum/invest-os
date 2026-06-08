@@ -366,7 +366,65 @@ SEED [INVESTMENTOS-v1.0]:
 
 ---
 
-## 📜 17. Filosofemas Finais
+## 🔄 17. Plano de Refatoração — Próximos Ciclos
+
+### 🧭 Diagnóstico
+
+Revisão arquitetural (Jun/2026) identificou risco ontológico: complexidade > capacidade operacional. O sistema atual mistura conceitos de economia, IA, DAO, tokenomics, governança e métricas em um único pacote. A recomendaçao é evoluir de "sistema de investimentos" para **"sistema operacional de capitais"**.
+
+### 🎯 Roadmap de Refatoração
+
+#### Ciclo 1 — Pureza Ontológica (curto prazo)
+
+| Ação | Justificativa |
+|------|---------------|
+| Separar `invest_os/` em domínios por conceito único | Cada módulo deve representar **um** conceito, não vários |
+| Extrair `invest_os/entities/` — `Person`, `Project`, `Community`, `DAO`, `Fund` | Entidades fundamentais estavam implícitas em `schemas.py` |
+| Extrair `invest_os/capitals/` — `HumanCapital`, `SocialCapital`, `FinancialCapital` etc. | `capital_grid.py` mistura avaliação, scoring e sugestão de ação |
+| Extrair `invest_os/signals/` — normalização de tweets, commits, transações em sinais | Tudo vira sinal: `Signal → Model → Score → Decision → Allocation` |
+
+#### Ciclo 2 — Limpeza de Acoplamento (médio prazo)
+
+| Ação | Justificativa |
+|------|---------------|
+| Remover dependência de `cli.py` → importa `engine.py` que importa `cognitive.py` → `capital_grid.py` | Acoplamento direcional deve ser `cli → pipeline → core`, não circular |
+| Extrair `governance/` para pacote independente | Pode ser reutilizado por outros projetos (cadcad-explorer, farcaster-nexus) |
+| `PromptsEngine.run_full_chain()` não deve acessar `datetime` via `__import__` | Substituir por `from datetime import datetime` explícito |
+| `CognitivePipeline` carrega `CapitalGrid` e `PromptEngine` no `__init__` — injetar por parâmetro | Facilitar testes e substituição de implementações |
+| `Metrics.calculate_all_metrics()` tem 12 parâmetros — quebrar em builders | Melhorar legibilidade e testabilidade |
+
+#### Ciclo 3 — Sistema Operacional de Capitais (longo prazo)
+
+```
+invest-os/
+├── entities/          # Person, Project, Community, Organization, Fund, DAO
+├── capitals/          # HumanCapital, SocialCapital, CulturalCapital, ...
+├── signals/           # Tweet, Commit, Issue, PR, Article, Transaction, Observation
+├── models/            # Modelagem preditiva e simulação (cadCAD, GBM, Lotka)
+├── scores/            # RHI, HHI, Gini, Sharpe — transformam sinais em scores
+├── decisions/         # Invest, Grant, Mentor, Connect, Ignore, Monitor
+├── allocations/       # Capital, Attention, Time, Knowledge, Money, Reputation
+├── governance/        # Ostrom + Goodhart Shield (separado, reutilizável)
+└── learning/          # RLHF, drift detection, level-up do investidor
+```
+
+### 🔍 Checklist de Revisão por Ciclo
+
+| Pergunta | Ciclo 1 | Ciclo 2 | Ciclo 3 |
+|----------|---------|---------|---------|
+| Cada módulo representa um único conceito? | ✅ | 🔄 | 🔄 |
+| Este componente aumenta a capacidade de decisão? | ✅ | ✅ | 🔄 |
+| Este dado gera sinal ou apenas armazenamento? | 🔄 | ✅ | ✅ |
+| Este módulo reduz ou aumenta entropia organizacional? | 🔄 | 🔄 | ✅ |
+| O sistema produz mais capital do que consome? | — | — | ✅ |
+
+### 🧬 Filosofema-Guia da Refatoração
+
+> "Investir não é escolher ativos; é aumentar a capacidade adaptativa de sistemas vivos através da alocação inteligente de capitais múltiplos."
+
+---
+
+## 🧬 18. Filosofemas Finais
 
 > "IA não é um oráculo que respondemos, mas um rio em que navegamos."
 
@@ -388,46 +446,52 @@ SEED [INVESTMENTOS-v1.0]:
 
 ---
 
-## ⚙️ 18. Implementação — Python Package
+## ⚙️ 19. Implementação — Python Package
 
-### 📦 Estrutura do Código
+### 📦 Mapeamento de Pastas & Arquivos
 
-```
-invest-os/
-├── pyproject.toml              # Configuração do package
-├── README.md                   # Esta spec
-├── CLASSIFIERS.txt             # Classificadores PyPI
-├── invest_os/                  # Package principal
-│   ├── __init__.py
-│   ├── cli.py                  # CLI (Click + Rich)
-│   ├── models/
-│   │   └── schemas.py          # Pydantic: modelos de domínio
-│   ├── core/
-│   │   ├── metrics.py          # NVT, MVRV, SOPR, Sharpe, HHI, Gini, Entropia
-│   │   └── capital_grid.py     # KAIROS 8 capitais + RHI + suggest_action
-│   ├── prompts/
-│   │   └── engine.py           # Meta-prompt chain 5 níveis
-│   ├── pipeline/
-│   │   └── cognitive.py        # Pipeline cognitivo 5 camadas
-│   ├── governance/
-│   │   └── engine.py           # Ostrom 8 princípios + Goodhart Shield
-│   └── utils/
-│       └── math_tools.py       # GBM, Lotka-Volterra, Bonding Curves, Conviction
-├── prompts/repository/         # Prompt templates versionados
-│   ├── level0_context.md
-│   ├── level1_financial_dd.md
-│   ├── level2_regenerative_dd.md
-│   ├── level3_semiotic.md
-│   ├── level4_axiological.md
-│   └── level5_rlhf.md
-└── tests/                      # 76 testes (pytest)
-    ├── test_metrics.py
-    ├── test_capital_grid.py
-    ├── test_prompts.py
-    ├── test_pipeline.py
-    ├── test_governance.py
-    └── test_math_tools.py
-```
+- **📁 `invest-os/`** — Raiz do projeto
+  - 📄 `pyproject.toml` — Configuração do package (setuptools + pytest + cov)
+  - 📄 `README.md` — Spec + documentação viva
+  - 📄 `CLASSIFIERS.txt` — Classificadores PyPI
+  - 📄 `.github/workflows/ci.yml` — CI GitHub Actions (Python 3.10–3.13)
+- **📁 `invest_os/`** — Package principal
+  - 🐍 `__init__.py` — Versão e metadados
+  - 🖥️ `cli.py` — CLI 6 comandos (Click + Rich): `analyze`, `pipeline`, `prompts`, `governance`, `simulate`, `version`
+  - **📁 `models/`**
+    - 📐 `schemas.py` — 12 modelos Pydantic: `InvestorConfig`, `FinancialMetrics`, `CapitalGridResult`, `DecisionOutput`, `RlhfLog`, `SystemState`, enums (`Action`, `CapitalType`, `InvestorProfile`, `RiskProfile`, `AlchemicalPhase`)
+  - **📁 `core/`**
+    - 📊 `metrics.py` — 12 funções: NVT, MVRV, SOPR, Sharpe, IL Break-even, Fee APY, HHI, Shannon Entropy, Gini, Financial Temperature, PBO, Min Track Record
+    - 🌿 `capital_grid.py` — KAIROS 8 capitais: `CapitalGrid.evaluate()`, `score_from_metrics()`, `interpret_rhi()`, `suggest_action()`
+  - **📁 `prompts/`**
+    - 🧠 `engine.py` — Meta-prompt chain 5 níveis: `PromptEngine` (6 templates), `load_prompt_repo()`, `render_prompt()`
+  - **📁 `pipeline/`**
+    - ⚙️ `cognitive.py` — Pipeline 5 camadas: `CognitivePipeline` com `camada1_percepcao` → `camada2_semiose` → `camada3_interpretacao` → `camada4_decisao` → `camada5_registro`
+  - **📁 `governance/`**
+    - 🏛️ `engine.py` — Ostrom 8 princípios + Goodhart Shield + drift detection
+  - **📁 `utils/`**
+    - ⚛️ `math_tools.py` — GBM, Lotka-Volterra, Bonding Curves, Conviction Voting, Cosine Similarity, JS Divergence
+- **📁 `prompts/repository/`** — Prompt templates Markdown
+  - 📝 `level0_context.md`
+  - 📝 `level1_financial_dd.md`
+  - 📝 `level2_regenerative_dd.md`
+  - 📝 `level3_semiotic.md`
+  - 📝 `level4_axiological.md`
+  - 📝 `level5_rlhf.md`
+- **📁 `tests/`** — 217 testes (pytest + coverage 99%)
+  - 🔥 `test_smoke.py` — Imports, CLI help, data models, fixtures
+  - 📊 `test_metrics.py` — NVT, MVRV, Sharpe, HHI, Entropia, Gini, Temperatura
+  - 🌿 `test_capital_grid.py` — KAIROS 8D, RHI, bloqueios, interpretação
+  - 🧠 `test_prompts.py` — Chain 5 níveis, templates, render
+  - ⚙️ `test_pipeline.py` — Pipeline 5 camadas, full_run, custom config
+  - 🏛️ `test_governance.py` — Ostrom, Goodhart Shield, drift
+  - ⚛️ `test_math_tools.py` — GBM, Lotka-Volterra, Bonding, Conviction
+  - 🔗 `test_integration.py` — Cross-module, metrics→grid→pipeline→prompts
+  - 🔬 `test_regression.py` — Boundary/edge cases, alerts, suggest_action branches
+  - 🌀 `test_system.py` — End-to-end workflows, multiple profiles
+  - 🧩 `test_cli.py` — CLI commands E2E (Click CliRunner, 6 comandos)
+  - 🛠️ `fixtures.py` — Factories, scenarios (bull/bear/stable/high-risk)
+  - 🎛️ `conftest.py` — Shared pytest fixtures
 
 ### 🚀 Instalação & Uso
 
@@ -499,12 +563,15 @@ print(f"RHI:   {result.state.capital_grid.rhi_estimated:.1%}")
 
 ### 📊 Cobertura
 
-| Módulo | Testes | Status |
-|--------|--------|--------|
-| `metrics` | 20 | ✅ NVT, MVRV, SOPR, Sharpe, IL, HHI, Entropia, Gini, Temperatura |
-| `capital_grid` | 9 | ✅ Grid 8D, RHI, bloqueios, interpretação, suggest_action |
-| `prompts` | 8 | ✅ Chain 5 níveis, templates, personalização |
-| `pipeline` | 8 | ✅ Pipeline 5 camadas, full_run, gates |
-| `governance` | 5 | ✅ Ostrom 8 princípios, Goodhart Shield, drift detection |
-| `math_tools` | 13 | ✅ GBM, Lotka-Volterra, Cosine, JSD, Bonding, Conviction |
-| **Total** | **76** | **✅ 100% passing** |
+| Módulo | Testes | Cobertura | Status |
+|--------|--------|-----------|--------|
+| `cli` | 31 (E2E) | 99% | ✅ 6 comandos, JSON, perfis, erros |
+| `metrics` | 20 + 6 regr. | 100% | ✅ NVT, MVRV, SOPR, Sharpe, IL, HHI, Entropia, Gini, Temperatura, PBO |
+| `capital_grid` | 9 + 8 regr. | 100% | ✅ Grid 8D, RHI, bloqueios, suggest_action todos os branches |
+| `prompts` | 8 + 5 regr. | 100% | ✅ Chain 5 níveis, templates, load_prompt_repo |
+| `pipeline` | 8 + 6 regr. | 100% | ✅ Pipeline 5 camadas, gates, boosts, bloqueio |
+| `governance` | 5 + 5 regr. | 100% | ✅ Ostrom, Goodhart, drift, adapt_weights |
+| `math_tools` | 13 + 4 regr. | 100% | ✅ GBM, Lotka, Cosine, JSD, Bonding, Conviction, augmented curves |
+| `integration` | 9 | — | ✅ Cross-module: metrics→grid, pipeline→prompts, governança |
+| `system` | 14 | — | ✅ Full workflow bull/bear/stable/high-risk, E2E, multi-perfil |
+| **Total** | **217** | **99%** | **✅ 100% passing** |
