@@ -10,12 +10,14 @@ import random
 
 import pytest
 
-from invest_os.core.metrics import (
-    sharpe_ratio, il_break_even, sopr, gini_coefficient,
-    pbo_probability, min_track_record_length, fee_apy,
-    financial_temperature, nvt_ratio, mvrv_ratio,
-    herfindahl_hirschman_index, shannon_entropy,
+from invest_os.scores.descriptive import (
+    sharpe_ratio, il_break_even, sopr,
+    nvt_ratio, mvrv_ratio, fee_apy, financial_temperature,
 )
+from invest_os.scores.interpretive import (
+    gini_coefficient, herfindahl_hirschman_index, shannon_entropy,
+)
+from invest_os.scores.axiological import rhi_from_grid, purpose_score
 from invest_os.core.capital_grid import CapitalGrid, suggest_action, interpret_rhi
 from invest_os.models.schemas import (
     CapitalType, CapitalGridResult, CapitalScore, Action,
@@ -29,12 +31,13 @@ from invest_os.utils.math_tools import (
     geometric_brownian_motion, price_from_bonding_curve,
     augmented_bonding_curve_price, il_protected_shares,
 )
+from invest_os.core.metrics import pbo_probability, min_track_record_length
 from tests.fixtures import make_capital_grid, make_capital_scores
 
 
-# ── metrics.py gap coverage ────────────────────────────────────────────────
+# ── scores/descriptive gap coverage ─────────────────────────────────────
 
-class TestMetricsRegression:
+class TestDescriptiveRegression:
     def test_sharpe_variance_zero(self):
         assert sharpe_ratio([5.0, 5.0, 5.0]) is None
 
@@ -49,36 +52,25 @@ class TestMetricsRegression:
         assert sopr(0, 100) == 0.0
         assert sopr(100, 0) is None
 
-    def test_gini_mean_zero(self):
-        assert gini_coefficient([0, 0, 0]) == 0.0
-
-    def test_pbo_short_series(self):
-        assert pbo_probability([0.01, 0.02]) == 0.5
-
-    def test_pbo_zero_std(self):
-        random.seed(42)
-        assert pbo_probability([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == 0.5
-
-    def test_pbo_normal_run(self):
-        random.seed(42)
-        prob = pbo_probability([0.01, 0.02, -0.01, 0.015, 0.005, 0.01, -0.02, 0.03, 0.01, 0.005])
-        assert 0 <= prob <= 1
-
-    def test_min_track_record_zero_sharpe(self):
-        assert min_track_record_length(0) == float("inf")
-        assert min_track_record_length(-0.5) == float("inf")
-
-    def test_min_track_record_positive_sharpe(self):
-        length = min_track_record_length(1.0, skew=0.5, kurt=4.0)
-        assert length < float("inf")
-        assert length > 0
-
     def test_nvt_ratio(self):
         assert nvt_ratio(100, 0) == float("inf")
         assert nvt_ratio(0, 100) == 0.0
 
     def test_mvrv_ratio_zero(self):
         assert mvrv_ratio(100, 0) is None
+
+    def test_fee_apy_zero_liquidity(self):
+        assert fee_apy(1000, 0.003, 0) is None
+
+    def test_temperature_basic(self):
+        assert abs(financial_temperature(0.05, 0.2) - 0.01) < 0.0001
+
+
+# ── scores/interpretive gap coverage ─────────────────────────────────────
+
+class TestInterpretiveRegression:
+    def test_gini_mean_zero(self):
+        assert gini_coefficient([0, 0, 0]) == 0.0
 
     def test_hhi_empty(self):
         assert herfindahl_hirschman_index([]) == 0.0
@@ -88,8 +80,18 @@ class TestMetricsRegression:
         assert shannon_entropy([]) == 0.0
         assert abs(shannon_entropy([1, 0]) - 0.0) < 0.001
 
-    def test_fee_apy_zero_liquidity(self):
-        assert fee_apy(1000, 0.003, 0) is None
+
+# ── scores/axiological gap coverage ─────────────────────────────────────
+
+class TestAxiologicalRegression:
+    def test_rhi_from_grid(self):
+        grid = make_capital_grid(rhi=0.65)
+        assert abs(rhi_from_grid(grid) - 0.65) < 0.01
+
+    def test_purpose_score_default(self):
+        grid = make_capital_grid(rhi=0.65)
+        ps = purpose_score(grid)
+        assert 0 <= ps <= 1
 
 
 # ── capital_grid.py gap coverage ───────────────────────────────────────────
@@ -207,49 +209,61 @@ class TestGovernanceRegression:
 # ── pipeline/cognitive.py gap coverage ─────────────────────────────────────
 
 class TestPipelineRegression:
-    def test_camada4_no_grid_yet(self, pipeline):
+    def test_camada6_no_grid_yet(self, pipeline):
         pipeline.state.capital_grid = None
-        decision = pipeline.camada4_decisao({"mvrv": 1.5, "sharpe_90d": 1.2})
+        decision = pipeline.camada6_decisao({"mvrv": 1.5, "sharpe_90d": 1.2})
         assert decision is not None
 
-    def test_camada4_comprar_branch(self, pipeline):
+    def test_camada6_comprar_branch(self, pipeline):
         cg = make_capital_grid(rhi=0.85)
         pipeline.state.capital_grid = cg
-        decision = pipeline.camada4_decisao({"mvrv": 1.5, "sharpe_90d": 1.5})
+        decision = pipeline.camada6_decisao({"mvrv": 1.5, "sharpe_90d": 1.5})
         assert decision.acao == Action.COMPRAR
         assert decision.tamanho_posicao > 0
 
-    def test_camada4_rebalancear_branch(self, pipeline):
+    def test_camada6_rebalancear_branch(self, pipeline):
         cg = make_capital_grid(rhi=0.35)
         pipeline.state.capital_grid = cg
-        decision = pipeline.camada4_decisao({"mvrv": 2.0, "sharpe_90d": 0.0})
+        decision = pipeline.camada6_decisao({"mvrv": 2.0, "sharpe_90d": 0.0})
         assert decision.acao == Action.REBALANCEAR
         assert decision.tamanho_posicao < 0
 
-    def test_camada4_mvrv_boost(self, pipeline):
+    def test_camada6_mvrv_boost(self, pipeline):
         cg = make_capital_grid(rhi=0.5)
         pipeline.state.capital_grid = cg
-        decision = pipeline.camada4_decisao({"mvrv": 0.8, "sharpe_90d": 0.5})
+        decision = pipeline.camada6_decisao({"mvrv": 0.8, "sharpe_90d": 0.5})
         assert decision.score_composto > 0.5
 
-    def test_camada4_sharpe_boost(self, pipeline):
+    def test_camada6_sharpe_boost(self, pipeline):
         cg = make_capital_grid(rhi=0.5)
         pipeline.state.capital_grid = cg
-        decision = pipeline.camada4_decisao({"mvrv": 1.5, "sharpe_90d": 1.2})
+        decision = pipeline.camada6_decisao({"mvrv": 1.5, "sharpe_90d": 1.2})
         assert decision.score_composto > 0.5
 
-    def test_camada4_gate_por_bloqueio(self, pipeline):
+    def test_camada6_gate_por_bloqueio(self, pipeline):
         cg = make_capital_grid(rhi=0.8, bloqueio="Monocultura")
         pipeline.state.capital_grid = cg
-        decision = pipeline.camada4_decisao({"mvrv": 1.5, "sharpe_90d": 0.5})
+        decision = pipeline.camada6_decisao({"mvrv": 1.5, "sharpe_90d": 0.5})
         assert decision.gate_humano is True
 
-    def test_camada5_with_feedback(self, pipeline):
-        pipeline.camada2_semiose()
-        pipeline.camada4_decisao({})
-        log = pipeline.camada5_registro({"realidade": "lucro 5%", "rhi_real": 0.7, "level_up": True})
+    def test_camada7_with_feedback(self, pipeline):
+        pipeline.camada4_semiose()
+        pipeline.camada6_decisao({})
+        log = pipeline.camada7_memoria({"realidade": "lucro 5%", "rhi_real": 0.7, "level_up": True})
         assert log.rhi_real == 0.7
         assert log.level_up is True
+
+    def test_normalizacao_empty_signals(self, pipeline):
+        normalized = pipeline.camada2_normalizacao([])
+        assert normalized == []
+
+    def test_camada7_no_decision(self, pipeline):
+        log = pipeline.camada7_memoria({"realidade": "teste"})
+        assert log.previsao == "N/A"
+
+    def test_modelagem_returns_dict(self, pipeline):
+        sim = pipeline.camada3_modelagem()
+        assert isinstance(sim, dict)
 
 
 # ── prompts/engine.py gap coverage ─────────────────────────────────────────
@@ -344,3 +358,24 @@ class TestMathToolsRegression:
         assert result > 100
         result_neg = il_protected_shares(100, -1)
         assert result_neg == 100
+
+    def test_pbo_short_series(self):
+        assert pbo_probability([0.01, 0.02]) == 0.5
+
+    def test_pbo_zero_std(self):
+        random.seed(42)
+        assert pbo_probability([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == 0.5
+
+    def test_pbo_normal_run(self):
+        random.seed(42)
+        prob = pbo_probability([0.01, 0.02, -0.01, 0.015, 0.005, 0.01, -0.02, 0.03, 0.01, 0.005])
+        assert 0 <= prob <= 1
+
+    def test_min_track_record_zero_sharpe(self):
+        assert min_track_record_length(0) == float("inf")
+        assert min_track_record_length(-0.5) == float("inf")
+
+    def test_min_track_record_positive_sharpe(self):
+        length = min_track_record_length(1.0, skew=0.5, kurt=4.0)
+        assert length < float("inf")
+        assert length > 0

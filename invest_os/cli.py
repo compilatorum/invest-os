@@ -15,8 +15,9 @@ from invest_os import __version__, __description__
 from invest_os.models.schemas import (
     InvestorConfig, CapitalType, Action, RiskProfile, InvestorProfile,
 )
-from invest_os.core.metrics import calculate_all_metrics
-from invest_os.core.capital_grid import CapitalGrid, interpret_rhi
+from invest_os.scores.descriptive import compute_descriptive
+from invest_os.scores.interpretive import compute_interpretive
+from invest_os.capitals.grid import CapitalGrid, interpret_rhi
 from invest_os.pipeline.cognitive import CognitivePipeline
 from invest_os.governance.engine import OstromEngine, GoodhartShield
 
@@ -46,7 +47,7 @@ def analyze(market_cap, volume, realized_cap, returns, shannon_h, gini, p1, p2, 
     if returns:
         returns_list = json.loads(returns)
 
-    metrics = calculate_all_metrics(
+    descriptive = compute_descriptive(
         market_cap=market_cap,
         transaction_volume=volume,
         realized_cap=realized_cap,
@@ -55,10 +56,11 @@ def analyze(market_cap, volume, realized_cap, returns, shannon_h, gini, p1, p2, 
         volume_24h=volume,
         fee_tier=0.003,
         liquidity=market_cap * 0.1,
-        portfolio_weights=[0.4, 0.3, 0.2, 0.1],
         volatility_24h=0.05,
         exposure_pct=0.1,
     )
+    interpretive = compute_interpretive(portfolio_weights=[0.4, 0.3, 0.2, 0.1])
+    metrics = {**descriptive, **interpretive}
 
     cm = CapitalGrid()
     capital_scores = CapitalGrid.score_from_metrics(
@@ -143,7 +145,7 @@ def analyze(market_cap, volume, realized_cap, returns, shannon_h, gini, p1, p2, 
 @click.option("--feedback", "-f", default=None, help="Feedback pós-decisão (JSON)")
 def pipeline(ativo, perfil, risco, tese, capital, market_cap, volume,
              realized_cap, shannon_h, gini, json_output, feedback):
-    """⚙️ Executa o pipeline cognitivo completo (5 camadas)"""
+    """⚙️ Executa o pipeline cognitivo completo (6 estágios)"""
     perfil_enum = InvestorProfile(perfil)
     risco_enum = RiskProfile(risco)
 
@@ -191,21 +193,25 @@ def pipeline(ativo, perfil, risco, tese, capital, market_cap, volume,
     console.print(f"  MVRV: {s.metrics.mvrv:.2f}" if s.metrics.mvrv else "")
     console.print(f"  Sharpe 90d: {s.metrics.sharpe_90d:.4f}" if s.metrics.sharpe_90d else "")
 
-    console.print(f"\n[bold cyan]📍 Camada 2 — Semiose[/bold cyan]")
+    console.print(f"\n[bold cyan]📍 Camada 2 — Normalização[/bold cyan]")
+    console.print(f"  📡 Sinais normalizados de mercado e governança")
+
+    console.print(f"\n[bold cyan]📍 Camada 3 — Modelagem[/bold cyan]")
+    console.print(f"  🔮 Simulações (GBM, Lotka-Volterra) concluídas")
+
+    console.print(f"\n[bold cyan]📍 Camada 4 — Interpretação (KAIROS)[/bold cyan]")
     if s.capital_grid:
         console.print(f"  RHI: {s.capital_grid.rhi_estimated:.2%}")
         nivel, faixa, _ = interpret_rhi(s.capital_grid.rhi_estimated)
         console.print(f"  Nível: {nivel.upper()} ({faixa})")
         if s.capital_grid.bloqueio:
             console.print(f"  🚫 {s.capital_grid.bloqueio}")
-
-    console.print(f"\n[bold cyan]📍 Camada 3 — Interpretação[/bold cyan]")
     if s.semiotic:
         console.print(f"  Coerência: {s.semiotic.coherence:.2f}")
         console.print(f"  Ruído: {s.semiotic.noise:.2f}")
         console.print(f"  Fase: {s.semiotic.phase.value}")
 
-    console.print(f"\n[bold cyan]📍 Camada 4 — Decisão[/bold cyan]")
+    console.print(f"\n[bold cyan]📍 Camada 5 — Decisão[/bold cyan]")
     if s.decision:
         acao_ico = {"comprar": "🟢", "aguardar": "🟡", "rebalancear": "🔶", "evitar": "🔴"}
         console.print(f"  Ação: {acao_ico.get(s.decision.acao.value, '❓')} {s.decision.acao.value.upper()}")
@@ -215,7 +221,7 @@ def pipeline(ativo, perfil, risco, tese, capital, market_cap, volume,
             console.print(f"  ⚠️ Gate Humano Obrigatório")
         console.print(f"  Narrativa: {s.decision.narrativa}")
 
-    console.print(f"\n[bold cyan]📍 Camada 5 — Registro[/bold cyan]")
+    console.print(f"\n[bold cyan]📍 Camada 6 — Memória[/bold cyan]")
     console.print(f"  Previsão: {s.history[-1].previsao if s.history else 'N/A'}")
     console.print(f"  Realidade: {s.history[-1].realidade if s.history else 'pendente'}")
 
@@ -388,15 +394,18 @@ def simulate(tipo, steps, dt, json_output):
 @main.command()
 def version():
     """📋 Mostra versão e info do sistema"""
-    console.print(f"[bold]🧬 InvestmentOS[/bold] v{__version__}")
+    console.print(f"[bold]🧬 Capital OS[/bold] v{__version__}")
     console.print(f"[dim]{__description__}[/dim]")
     console.print()
     console.print("  [cyan]Módulos:[/cyan]")
-    console.print("    • 📊 core/metrics — NVT, MVRV, SOPR, Sharpe, HHI, ...")
-    console.print("    • 🌿 core/capital_grid — KAIROS 8 capitais, RHI")
-    console.print("    • 🧠 prompts/engine — Meta-prompt chain 5 níveis")
-    console.print("    • ⚙️  pipeline/cognitive — Pipeline cognitivo 5 camadas")
+    console.print("    • 🧩 entities/ — Person, Project, Community, DAO, Fund")
+    console.print("    • 🌿 capitals/ — KAIROS configurável (add_dimension)")
+    console.print("    • 📡 signals/ — MarketSignal, SocialSignal, CodeSignal")
+    console.print("    • 📊 scores/ — 4 camadas: Descritiva → Decisória")
+    console.print("    • 🧠 prompts/engine — Motor epistêmico + router")
+    console.print("    • ⚙️  pipeline/cognitive — 6 estágios ontológicos")
     console.print("    • 🏛️  governance/engine — Ostrom + Goodhart Shield")
+    console.print("    • 📖 learning/ — RLHF + Drift Detection")
     console.print("    • ⚛️  utils/math_tools — Econofísica, GBM, Lotka-Volterra")
     console.print()
     console.print("  [cyan]Comandos CLI:[/cyan]")

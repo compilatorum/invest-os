@@ -1,3 +1,5 @@
-__version__ = "1.0.0"
+__version__ = "2.0.0-dev"
 __author__ = "João Nitsche"
-__description__ = "Web3 Investment OS — Protocolo Cognitivo de Suporte ao Investidor"
+__description__ = "Capital OS — Sistema Operacional de Capitais (KAIROS OS)"
+
+from invest_os import entities, capitals, signals, scores, learning

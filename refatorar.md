@@ -276,19 +276,24 @@ docs/08-seguranca  → ZK-Proofs, gates humanos, fallbacks low-tech
 
 ## 🔍 Checklist de Progresso
 
-### Fase 1 — Pureza Ontológica
-- [ ] `invest-os-core` extraído com signals → scores → decisions
-- [ ] `entities/` com Person, Project, Community, Organization, DAO, Fund
-- [ ] `capitals/` com hierarquia de Capital base
-- [ ] Pipeline refinado: Percepção → Normalização → Modelagem → Interpretação → Decisão → Memória
-- [ ] Testes ontológicos passando
+### Fase 1 — Pureza Ontológica ✅ (287 testes, 100% passando)
+- [x] `signals/` — MarketSignal, SocialSignal, CodeSignal, GovernanceSignal
+- [x] `scores/` — 4 camadas: Descritiva, Interpretativa, Axiológica, Decisória
+- [x] `entities/` — Person, Project, Community, Organization, DAO, Fund
+- [x] `capitals/` — KAIROS configurável via `add_dimension()`, `DimensionRegistry`
+- [x] `learning/` — RLHFEngine + DriftDetector
+- [x] Pipeline refinado: Percepção → Normalização → Modelagem → Interpretação → Decisão → Memória
+- [x] PromptRouter — roteamento por intenção (desacoplado)
+- [x] Backward compatibility total (287 testes originais + novos passando)
+- [x] `docs/` — 00-filosofema, 01-ontologia, 02-matematica, 03-pipeline, 04-kairos, 05-governanca
 
-### Fase 2 — Limpeza de Acoplamento
-- [ ] Pacotes separados: governance, cadcad, prompts, regenerative, semiotics
-- [ ] Métricas em 4 camadas: Descritiva, Interpretativa, Axiológica, Decisória
-- [ ] PromptEngine desacoplado como motor epistêmico
-- [ ] KAIROS configurável via `add_dimension()`
-- [ ] Testes de acoplamento passando
+### Fase 2 — Limpeza de Acoplamento (em progresso)
+- [x] Métricas em 4 camadas: Descritiva, Interpretativa, Axiológica, Decisória
+- [x] KAIROS configurável via `add_dimension()` + `DimensionRegistry`
+- [x] PromptRouter — roteamento por intenção (base para motor epistêmico)
+- [ ] Pacotes separados: governance → `invest-os-governance`, etc.
+- [ ] PromptEngine 100% desacoplado do domínio financeiro
+- [ ] Testes de acoplamento específicos
 
 ### Fase 3 — Sistema Operacional de Capitais
 - [ ] Estrutura-alvo implementada

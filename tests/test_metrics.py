@@ -136,3 +136,9 @@ class TestCalculateAllMetrics:
         assert "sharpe_90d" in metrics
         assert "alertas" in metrics
         assert isinstance(metrics["alertas"], list)
+
+    def test_nvt_alert(self):
+        metrics = calculate_all_metrics(
+            market_cap=2e9, transaction_volume=1e6, realized_cap=1e9,
+        )
+        assert any("NVT" in a for a in metrics["alertas"])

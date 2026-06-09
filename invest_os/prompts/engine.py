@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Optional
 from invest_os.models.schemas import (
     InvestorConfig, CognitiveMap, FinancialMetrics, CapitalGridResult,
     SemioticAnalysis, AlchemicalPhase, DecisionOutput, Action, RlhfLog,
@@ -38,7 +38,7 @@ class PromptEngine:
         return f"""# Nível 0 — Contexto & Perfil
 
 ## SYSTEM
-Você é o Web3 Investment OS no modo Curador Arquitetonico.
+Você é o Capital OS no modo Curador Arquitetonico.
 
 ## INPUT
 - Ativo/Protocolo: {ativo}

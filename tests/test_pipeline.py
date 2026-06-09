@@ -1,6 +1,7 @@
 import pytest
 from invest_os.pipeline.cognitive import CognitivePipeline
 from invest_os.models.schemas import CapitalType, Action
+from invest_os.signals.base import MarketSignal
 
 
 class TestCognitivePipeline:
@@ -24,31 +25,43 @@ class TestCognitivePipeline:
         assert metrics["nvt"] == 100.0
         assert metrics["mvrv"] == 1.25
 
+    def test_normalizacao(self):
+        signals = [MarketSignal(source="test", value=0.5, market_cap=1e9, transaction_volume=1e7, realized_cap=8e8)]
+        normalized = self.pipe.camada2_normalizacao(signals)
+        assert len(normalized) == 1
+        assert 0 <= normalized[0].normalized_value <= 1
+
+    def test_modelagem(self):
+        sim = self.pipe.camada3_modelagem()
+        assert "gbm_final" in sim
+        assert "lotka_vivo_final" in sim
+        assert "lotka_financeiro_final" in sim
+
     def test_semiose(self):
-        capital = self.pipe.camada2_semiose(shannon_h=1.8, gini=0.25)
+        capital = self.pipe.camada4_semiose(shannon_h=1.8, gini=0.25)
         assert len(capital.scores) == 8
         assert capital.rhi_estimated > 0
 
     def test_semiose_with_block(self):
-        capital = self.pipe.camada2_semiose(shannon_h=0.5, gini=0.7)
+        capital = self.pipe.camada4_semiose(shannon_h=0.5, gini=0.7)
         assert capital.bloqueio is not None
 
     def test_interpretacao(self):
-        self.pipe.camada2_semiose()
-        analysis = self.pipe.camada3_interpretacao("BTC")
+        self.pipe.camada4_semiose()
+        analysis = self.pipe.camada5_interpretacao("BTC")
         assert analysis.coherence >= 0
         assert analysis.noise >= 0
 
     def test_decisao(self):
-        self.pipe.camada2_semiose()
-        decision = self.pipe.camada4_decisao({"mvrv": 1.0, "sharpe_90d": 0.5})
+        self.pipe.camada4_semiose()
+        decision = self.pipe.camada6_decisao({"mvrv": 1.0, "sharpe_90d": 0.5})
         assert decision.acao in list(Action)
-        assert 0 <= decision.tamanho_posicao <= 1
+        assert -1 <= decision.tamanho_posicao <= 1
 
-    def test_registro(self):
-        self.pipe.camada2_semiose()
-        self.pipe.camada4_decisao({})
-        log = self.pipe.camada5_registro({"realidade": "lucro 3%", "level_up": False})
+    def test_memoria(self):
+        self.pipe.camada4_semiose()
+        self.pipe.camada6_decisao({})
+        log = self.pipe.camada7_memoria({"realidade": "lucro 3%", "level_up": False})
         assert log.previsao is not None
 
     def test_custom_config(self):

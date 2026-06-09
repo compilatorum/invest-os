@@ -7,3 +7,6 @@ build/
 .env
 *.egg
 .DS_Store
+.coverage
+htmlcov/
+.coverage.*

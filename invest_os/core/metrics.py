@@ -1,83 +1,19 @@
 from __future__ import annotations
 
 import math
+import random
 from typing import Optional
 
-
-def nvt_ratio(market_cap: float, transaction_volume: float) -> float:
-    if transaction_volume <= 0:
-        return float("inf")
-    return market_cap / transaction_volume
-
-
-def mvrv_ratio(market_cap: float, realized_cap: float) -> Optional[float]:
-    if realized_cap <= 0:
-        return None
-    return market_cap / realized_cap
-
-
-def sopr(value_sold: float, value_bought: float) -> Optional[float]:
-    if value_bought <= 0:
-        return None
-    return value_sold / value_bought
-
-
-def sharpe_ratio(returns: list[float], risk_free: float = 0.0) -> Optional[float]:
-    if len(returns) < 2:
-        return None
-    mean_ret = sum(returns) / len(returns)
-    variance = sum((r - mean_ret) ** 2 for r in returns) / (len(returns) - 1)
-    if variance <= 0:
-        return None
-    std = math.sqrt(variance)
-    return (mean_ret - risk_free) / std
-
-
-def il_break_even(p1: float, p2: float) -> float:
-    if p1 <= 0 or p2 <= 0:
-        return 0.0
-    ratio = p2 / p1
-    return 2 * math.sqrt(ratio) / (1 + ratio) - 1
-
-
-def fee_apy(volume_24h: float, fee_tier: float, liquidity: float) -> Optional[float]:
-    if liquidity <= 0:
-        return None
-    return (volume_24h * fee_tier * 365) / liquidity
-
-
-def herfindahl_hirschman_index(weights: list[float]) -> float:
-    total = sum(weights)
-    if total <= 0:
-        return 0.0
-    normalized = [w / total for w in weights]
-    return sum(w ** 2 for w in normalized)
-
-
-def financial_temperature(volatility_24h: float, exposure_pct: float) -> float:
-    return volatility_24h * exposure_pct
-
-
-def shannon_entropy(weights: list[float]) -> float:
-    total = sum(weights)
-    if total <= 0:
-        return 0.0
-    normalized = [w / total for w in weights]
-    return -sum(p * math.log2(p) for p in normalized if p > 0)
-
-
-def gini_coefficient(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    sorted_vals = sorted(values)
-    n = len(sorted_vals)
-    cumsum = 0
-    for i, v in enumerate(sorted_vals):
-        cumsum += (2 * (n - i) - 1) * v
-    mean = sum(sorted_vals) / n
-    if mean <= 0:
-        return 0.0
-    return max(0.0, (n + 1 - 2 * cumsum / (n * mean)) / n)
+from invest_os.scores.descriptive import (
+    nvt_ratio, mvrv_ratio, sopr, sharpe_ratio,
+    il_break_even, fee_apy, financial_temperature,
+    compute_descriptive,
+)
+from invest_os.scores.interpretive import (
+    herfindahl_hirschman_index, shannon_entropy, gini_coefficient,
+    compute_interpretive,
+)
+from invest_os.scores.axiological import rhi_from_grid, purpose_score
 
 
 def pbo_probability(strategy_returns: list[float], num_trials: int = 1000) -> float:
@@ -92,7 +28,6 @@ def pbo_probability(strategy_returns: list[float], num_trials: int = 1000) -> fl
     beats = 0
     for _ in range(num_trials):
         shuffled = strategy_returns[:]
-        import random
         random.shuffle(shuffled)
         m = sum(shuffled) / len(shuffled)
         s = math.sqrt(sum((r - m) ** 2 for r in shuffled) / (len(shuffled) - 1))
@@ -123,30 +58,40 @@ def calculate_all_metrics(
     exposure_pct: float = 0,
     risk_free: float = 0.0,
 ) -> dict:
-    metrics = {}
-    metrics["nvt"] = nvt_ratio(market_cap, transaction_volume)
-    metrics["mvrv"] = mvrv_ratio(market_cap, realized_cap)
-    metrics["sopr"] = sopr(transaction_volume, realized_cap)
-    if returns_90d:
-        metrics["sharpe_90d"] = sharpe_ratio(returns_90d, risk_free)
-    metrics["il_break_even"] = il_break_even(p1, p2)
-    metrics["fee_apy"] = fee_apy(volume_24h, fee_tier, liquidity)
-    if portfolio_weights:
-        metrics["hhi"] = herfindahl_hirschman_index(portfolio_weights)
-        metrics["entropy"] = shannon_entropy(portfolio_weights)
-    metrics["temperature"] = financial_temperature(volatility_24h, exposure_pct)
+    descriptive = compute_descriptive(
+        market_cap=market_cap, transaction_volume=transaction_volume,
+        realized_cap=realized_cap, returns_90d=returns_90d,
+        p1=p1, p2=p2, volume_24h=volume_24h, fee_tier=fee_tier,
+        liquidity=liquidity, volatility_24h=volatility_24h,
+        exposure_pct=exposure_pct, risk_free=risk_free,
+    )
+    interpretive = compute_interpretive(portfolio_weights=portfolio_weights)
+    descriptive.update(interpretive)
 
     alertas = []
-    if metrics.get("nvt") and metrics["nvt"] > 150:
+    nvt = descriptive.get("nvt")
+    if nvt and nvt > 150:
         alertas.append("NVT elevado — possível supervalorização")
-    if metrics.get("mvrv") and metrics["mvrv"] < 1.0:
+    mvrv = descriptive.get("mvrv")
+    if mvrv and mvrv < 1.0:
         alertas.append("MVRV < 1.0 — oportunidade de acumulação")
-    elif metrics.get("mvrv") and metrics["mvrv"] > 3.5:
+    elif mvrv and mvrv > 3.5:
         alertas.append("MVRV > 3.5 — perigo de sobrevalorização")
-    if metrics.get("sopr") and metrics["sopr"] < 1.0:
+    sopr_ = descriptive.get("sopr")
+    if sopr_ and sopr_ < 1.0:
         alertas.append("SOPR < 1.0 — capitulação de holders")
-    if metrics.get("hhi") and metrics["hhi"] > 0.25:
+    hhi = descriptive.get("hhi")
+    if hhi and hhi > 0.25:
         alertas.append("HHI > 0.25 — concentração excessiva no portfolio")
+    descriptive["alertas"] = alertas
+    return descriptive
 
-    metrics["alertas"] = alertas
-    return metrics
+
+__all__ = [
+    "nvt_ratio", "mvrv_ratio", "sopr", "sharpe_ratio",
+    "il_break_even", "fee_apy", "financial_temperature",
+    "herfindahl_hirschman_index", "shannon_entropy", "gini_coefficient",
+    "rhi_from_grid", "purpose_score",
+    "calculate_all_metrics",
+    "pbo_probability", "min_track_record_length",
+]

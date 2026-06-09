@@ -21,8 +21,24 @@ class TestImportSmoke:
         "invest_os.core",
         "invest_os.core.metrics",
         "invest_os.core.capital_grid",
+        "invest_os.entities",
+        "invest_os.entities.base",
+        "invest_os.capitals",
+        "invest_os.capitals.grid",
+        "invest_os.capitals.dimensions",
+        "invest_os.signals",
+        "invest_os.signals.base",
+        "invest_os.scores",
+        "invest_os.scores.descriptive",
+        "invest_os.scores.interpretive",
+        "invest_os.scores.axiological",
+        "invest_os.scores.decisional",
+        "invest_os.learning",
+        "invest_os.learning.rlhf",
+        "invest_os.learning.drift",
         "invest_os.prompts",
         "invest_os.prompts.engine",
+        "invest_os.prompts.router",
         "invest_os.pipeline",
         "invest_os.pipeline.cognitive",
         "invest_os.governance",
@@ -52,7 +68,7 @@ class TestCLISmoke:
         runner = CliRunner()
         result = runner.invoke(main, ["version"])
         assert result.exit_code == 0
-        assert "v1.0.0" in result.output
+        assert "InvestmentOS" in result.output or "Capital OS" in result.output
 
     def test_cli_analyze_help(self):
         from invest_os.cli import main

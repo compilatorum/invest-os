@@ -10,9 +10,16 @@ from invest_os.models.schemas import (
     SemioticAnalysis, AlchemicalPhase, DecisionOutput, Action, RlhfLog,
     CognitiveMap, SystemState,
 )
-from invest_os.core.metrics import calculate_all_metrics
-from invest_os.core.capital_grid import CapitalGrid, interpret_rhi, suggest_action
+from invest_os.scores.descriptive import compute_descriptive
+from invest_os.scores.interpretive import compute_interpretive
+from invest_os.capitals.grid import CapitalGrid, interpret_rhi, suggest_action
+from invest_os.signals.base import (
+    Signal, MarketSignal, SocialSignal, CodeSignal, GovernanceSignal,
+    normalize,
+)
 from invest_os.prompts.engine import PromptEngine
+from invest_os.learning.rlhf import RLHFEngine
+from invest_os.learning.drift import DriftDetector
 
 
 @dataclass
@@ -27,6 +34,8 @@ class CognitivePipeline:
         self.config = config or InvestorConfig()
         self.prompts = PromptEngine()
         self.capital_grid = CapitalGrid()
+        self.rlhf = RLHFEngine()
+        self.drift = DriftDetector()
         self.state = SystemState(config=self.config)
 
     def camada1_percepcao(
@@ -44,7 +53,7 @@ class CognitivePipeline:
         p1: float = 1.0,
         p2: float = 1.0,
     ) -> dict:
-        metrics = calculate_all_metrics(
+        descriptive = compute_descriptive(
             market_cap=market_cap,
             transaction_volume=transaction_volume,
             realized_cap=realized_cap,
@@ -53,14 +62,56 @@ class CognitivePipeline:
             volume_24h=volume_24h,
             fee_tier=fee_tier,
             liquidity=liquidity,
-            portfolio_weights=portfolio_weights,
             volatility_24h=volatility_24h,
             exposure_pct=exposure_pct,
         )
-        self.state.metrics = FinancialMetrics(**{k: v for k, v in metrics.items() if k != "alertas"})
-        return metrics
+        interpretive = compute_interpretive(portfolio_weights=portfolio_weights)
+        descriptive.update(interpretive)
 
-    def camada2_semiose(
+        alertas = []
+        nvt = descriptive.get("nvt")
+        if nvt and nvt > 150:
+            alertas.append("NVT elevado — possível supervalorização")
+        mvrv = descriptive.get("mvrv")
+        if mvrv and mvrv < 1.0:
+            alertas.append("MVRV < 1.0 — oportunidade de acumulação")
+        elif mvrv and mvrv > 3.5:
+            alertas.append("MVRV > 3.5 — perigo de sobrevalorização")
+        sopr_ = descriptive.get("sopr")
+        if sopr_ and sopr_ < 1.0:
+            alertas.append("SOPR < 1.0 — capitulação de holders")
+        hhi = descriptive.get("hhi")
+        if hhi and hhi > 0.25:
+            alertas.append("HHI > 0.25 — concentração excessiva no portfolio")
+        descriptive["alertas"] = alertas
+
+        self.state.metrics = FinancialMetrics(**{k: v for k, v in descriptive.items() if k != "alertas"})
+        return descriptive
+
+    def camada2_normalizacao(self, signals: Optional[list[Signal]] = None) -> list:
+        if signals is None:
+            signals = [
+                MarketSignal(
+                    source="on-chain",
+                    value=0.5,
+                    market_cap=self.state.metrics.nvt or 1e9,
+                    transaction_volume=self.state.metrics.sopr or 1e7,
+                    realized_cap=self.state.metrics.mvrv or 8e8,
+                ),
+            ]
+        return [normalize(s) for s in signals]
+
+    def camada3_modelagem(self) -> dict:
+        from invest_os.utils.math_tools import geometric_brownian_motion, lotka_volterra
+        gbm_path = geometric_brownian_motion(100, 0.05, 0.2, 0.01, 50)
+        v, f = lotka_volterra(0.5, 0.01, 0.01, 0.3, 40, 10, 0.01, 50)
+        return {
+            "gbm_final": round(gbm_path[-1], 4) if gbm_path else 100.0,
+            "lotka_vivo_final": round(v[-1], 4) if v else 40.0,
+            "lotka_financeiro_final": round(f[-1], 4) if f else 10.0,
+        }
+
+    def camada4_semiose(
         self,
         shannon_h: float = 0.0,
         gini: float = 0.0,
@@ -93,7 +144,7 @@ class CognitivePipeline:
         self.state.capital_grid = result
         return result
 
-    def camada3_interpretacao(self, ativo: str) -> SemioticAnalysis:
+    def camada5_interpretacao(self, ativo: str) -> SemioticAnalysis:
         analysis = SemioticAnalysis(
             sign=f"Sinais de mercado de {ativo}",
             object="Fundamentos on-chain e off-chain",
@@ -108,10 +159,10 @@ class CognitivePipeline:
         self.state.semiotic = analysis
         return analysis
 
-    def camada4_decisao(self, metrics: dict) -> DecisionOutput:
+    def camada6_decisao(self, metrics: dict) -> DecisionOutput:
         grid = self.state.capital_grid
         if not grid:
-            grid = self.camada2_semiose()
+            grid = self.camada4_semiose()
 
         acao = suggest_action(grid, metrics)
         score = grid.rhi_estimated
@@ -146,7 +197,7 @@ class CognitivePipeline:
         self.state.decision = decision
         return decision
 
-    def camada5_registro(self, feedback: Optional[dict] = None) -> RlhfLog:
+    def camada7_memoria(self, feedback: Optional[dict] = None) -> RlhfLog:
         log = RlhfLog(
             previsao=str(self.state.decision.acao.value if self.state.decision else "N/A"),
             realidade=feedback.get("realidade", "pendente") if feedback else "pendente",
@@ -157,33 +208,41 @@ class CognitivePipeline:
             level_up=feedback.get("level_up", False) if feedback else False,
         )
         self.state.history.append(log)
+        self.rlhf.register(log)
+        if feedback:
+            self.drift.observe("rhi", log.rhi_estimado or 0.0)
         return log
 
     def run(self, ativo: str = "BTC",
             metrics_input: Optional[dict] = None,
             capital_scores: Optional[dict[CapitalType, float]] = None,
             capital_scores_kwargs: Optional[dict] = None,
-            feedback: Optional[dict] = None) -> PipelineResult:
+            feedback: Optional[dict] = None,
+            signals: Optional[list[Signal]] = None) -> PipelineResult:
         import time
         start = time.time()
 
         m = metrics_input or {}
         metrics = self.camada1_percepcao(**m)
 
+        normalized = self.camada2_normalizacao(signals)
+
+        simulation = self.camada3_modelagem()
+
         csk = capital_scores_kwargs or {}
         shannon_h = csk.get("shannon_h", metrics.get("entropy", 1.5))
         gini = csk.get("gini", metrics.get("gini", 0.0))
-        capital = self.camada2_semiose(
+        capital = self.camada4_semiose(
             shannon_h=shannon_h,
             gini=gini,
             custom_scores=capital_scores,
         )
 
-        semiotic = self.camada3_interpretacao(ativo)
+        semiotic = self.camada5_interpretacao(ativo)
 
-        decision = self.camada4_decisao(metrics)
+        decision = self.camada6_decisao(metrics)
 
-        log = self.camada5_registro(feedback)
+        log = self.camada7_memoria(feedback)
 
         chain = self.prompts.run_full_chain(
             ativo=ativo,
